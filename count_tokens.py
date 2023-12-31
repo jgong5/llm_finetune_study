@@ -1,4 +1,5 @@
 from collections import defaultdict
+from fnmatch import fnmatch
 import os
 from transformers import AutoTokenizer
 import os
@@ -9,18 +10,25 @@ def count_tokens(file_path, tokenizer):
         tokens = tokenizer.encode(content)
         return len(tokens)
 
+def is_excluded(file_path, excluded_patterns):
+    for pattern in excluded_patterns:
+        if fnmatch(file_path, pattern):
+            return True
+    return False
+
 def main():
     # parse args
     import argparse
     parser = argparse.ArgumentParser(description='count tokens')
     parser.add_argument('--project-dir', type=str, default='.', help='project directory')
+    parser.add_argument('--suffixes', type=str, nargs='+', default=['.py', '.c', '.cpp', '.h', '.hpp'], help='source file suffixes')
+    parser.add_argument('--excludes', type=str, nargs='+', default=['**/build/*', '**/third_party/*'], help='excluded patterns')
 
     args = parser.parse_args()
 
     project_directory = args.project_dir
-
-    # Define the file suffixes for source files
-    source_suffixes = [".py", ".c", ".cpp", ".h", ".hpp"]
+    source_suffixes = args.suffixes
+    excluded_patterns = args.excludes
 
     # Initialize the tokenizer
     tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
@@ -34,9 +42,11 @@ def main():
     # Traverse the project directory
     for root, _, files in os.walk(project_directory):
         for file in files:
+            abs_path = os.path.join(root, file)
+            file_path = os.path.relpath(abs_path, project_directory)
+            if is_excluded(file_path, excluded_patterns):
+                continue
             if file.endswith(tuple(source_suffixes)):
-                abs_path = os.path.join(root, file)
-                file_path = os.path.relpath(abs_path, project_directory)
                 num_tokens = count_tokens(abs_path, tokenizer)
                 print(f"{file_path}: {num_tokens}")
 
