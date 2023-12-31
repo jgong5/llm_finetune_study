@@ -1,6 +1,6 @@
 import torch
 import intel_extension_for_pytorch as ipex
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
 from transformers import pipeline
 
 
@@ -20,32 +20,11 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16).to("xpu")
 
 # Encode the input text
-input_text = f"<s>[INST] {args.prompt} [/INST]"
+input_text = f"[INST] {args.prompt} [/INST]"
+streamer = TextStreamer(tokenizer)
 batch = tokenizer(input_text, return_tensors="pt").to("xpu")
-with torch.no_grad():
-    output = model(
-        input_ids=batch["input_ids"],
-    )
 
-decoded_sequence = []
-decoded_str = ""
-MAX_OUTPUT_TOKEN_LENGTH = 32000
-# Generation loop
-while len(decoded_sequence) < MAX_OUTPUT_TOKEN_LENGTH:
-    # From here on, use cached attention
-    past_key_values = output.past_key_values
-    next_token_logits = output.logits[:, -1, :]
-    next_token = next_token_logits.argmax()
-    # Stop if EOS token generated
-    if next_token == tokenizer.eos_token_id:
-        break
-    decoded_sequence.append(next_token)
-    decoded_str_new = tokenizer.decode(decoded_sequence)
-    print(decoded_str_new[len(decoded_str):], end='', flush=True)
-    decoded_str = decoded_str_new
-    with torch.no_grad():
-        output = model(
-            input_ids=torch.tensor([[next_token]], device="xpu"),
-            past_key_values=past_key_values,
-        )
+with torch.no_grad():
+    model.generate(**batch, streamer=streamer, max_new_tokens=1000, do_sample=True, repetition_penalty=1.2)
+
 print()
