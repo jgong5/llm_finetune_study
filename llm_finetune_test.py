@@ -12,9 +12,22 @@ from transformers import (
 from peft import LoraConfig
 from trl import SFTTrainer
 
+def llama_formatter(examples):
+    return [example for example in examples['text']]
 
-def orca_formatter(example):
-    return [f"<s>[INST] <<SYS>>\n{example['system_prompt']}\n<</SYS>>\n{example['question']} [/INST] {example['response']} </s>"]
+def orca_formatter(examples):
+    return [
+        f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n{question} [/INST] {response} </s>"
+        for system_prompt, question, response in zip(examples['system_prompt'], examples['question'], examples['response'])
+    ]
+
+def gpt_formatter(examples):
+    return [
+        f"<s>[INST] {instruction} [INPUT] {input} [/INPUT] [/INST] {output} </s>"
+        if len(input) > 0
+        else f"<s>[INST] {instruction} [/INST] {output} </s>"
+        for instruction, input, output in zip(examples['instruction'], examples['input'], examples['output'])
+    ]
 
 # parse args
 import argparse
@@ -23,6 +36,7 @@ parser.add_argument('--dataset', type=str, default='mlabonne/guanaco-llama2-1k',
 parser.add_argument('--output-dir', type=str, default='llama2-7b-chatbot', help='output directory')
 parser.add_argument('--train-num-samples', type=int, default=0, help='number of training samples')
 parser.add_argument('--max-seq-length', type=int, default=1024, help='maximum sequence length')
+parser.add_argument('--dataset-type', type=str, default='llama', help='dataset type')
 
 args = parser.parse_args()
 
@@ -60,8 +74,7 @@ trainer = SFTTrainer(
     model=model,
     args=TrainingArguments(**training_args),
     train_dataset=dataset,
-    # formatting_func=orca_formatter,
-    dataset_text_field="text",
+    formatting_func=globals()[f"{args.dataset_type}_formatter"],
     peft_config=peft_config,
     tokenizer=tokenizer,
     max_seq_length=args.max_seq_length,
