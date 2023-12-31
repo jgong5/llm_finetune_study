@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description='llm inference test')
 parser.add_argument('--prompt', type=str, default='Who is Lincoln?', help='input prompt')
 parser.add_argument('--model', type=str, default='meta-llama/Llama-2-7b-hf', help='model name')
 parser.add_argument('--system-prompt', type=str, default='', help='system prompt')
+parser.add_argument('--max-new-tokens', type=int, default=2048, help='maximum new tokens')
 
 args = parser.parse_args()
 
@@ -24,6 +25,6 @@ streamer = TextStreamer(tokenizer, skip_prompt=True)
 batch = tokenizer(input_text, return_tensors="pt").to("xpu")
 
 with torch.no_grad():
-    model.generate(**batch, streamer=streamer, do_sample=True)
+    model.generate(**batch, streamer=streamer, max_new_tokens=args.max_new_tokens)
 
 print()
