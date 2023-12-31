@@ -9,6 +9,7 @@ import argparse
 parser = argparse.ArgumentParser(description='llm inference test')
 parser.add_argument('--prompt', type=str, default='Who is Lincoln?', help='input prompt')
 parser.add_argument('--model', type=str, default='meta-llama/Llama-2-7b-hf', help='model name')
+parser.add_argument('--system-prompt', type=str, default='', help='system prompt')
 
 args = parser.parse_args()
 
@@ -18,7 +19,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16).to("xpu")
 
 # Encode the input text
-input_text = f"[INST] {args.prompt} [/INST] "
+input_text = f"[INST] <<SYS>>\n{args.system_prompt}\n<</SYS>>\n{args.prompt} [/INST] "
 streamer = TextStreamer(tokenizer, skip_prompt=True)
 batch = tokenizer(input_text, return_tensors="pt").to("xpu")
 
