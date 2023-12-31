@@ -14,17 +14,15 @@ args = parser.parse_args()
 
 # Load the pre-trained llama2-7b model and tokenizer
 model_name = args.model
-# model_name = "meta-llama/Llama-2-7b-chat-hf"
-# model_name = "llama2-7b-chatbot"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16).to("xpu")
 
 # Encode the input text
-input_text = f"[INST] {args.prompt} [/INST]"
-streamer = TextStreamer(tokenizer)
+input_text = f"[INST] {args.prompt} [/INST] "
+streamer = TextStreamer(tokenizer, skip_prompt=True)
 batch = tokenizer(input_text, return_tensors="pt").to("xpu")
 
 with torch.no_grad():
-    model.generate(**batch, streamer=streamer, max_new_tokens=1000, do_sample=True, repetition_penalty=1.2)
+    model.generate(**batch, streamer=streamer, do_sample=True)
 
 print()

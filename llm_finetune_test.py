@@ -43,7 +43,9 @@ args = parser.parse_args()
 # Load the pre-trained llama2-7b model and tokenizer
 model_name = "meta-llama/Llama-2-7b-hf"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-tokenizer.pad_token = tokenizer.eos_token
+# NEVER DO THINGS BELOW!!! See https://www.georgesung.com/ai/qlora-ift/ and https://github.com/huggingface/transformers/issues/22794#issuecomment-1598977285
+# tokenizer.pad_token = tokenizer.eos_token
+tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # New instruction dataset
@@ -52,6 +54,7 @@ dataset = load_dataset(args.dataset, split=f"train[:{args.train_num_samples}]" i
 peft_config = LoraConfig(
     r=64,
     lora_alpha=16,
+    lora_dropout=0.1,
     bias="none",
     task_type="CAUSAL_LM",
 )
@@ -63,7 +66,7 @@ training_args = {
     "per_device_train_batch_size": 1,
     "gradient_accumulation_steps": 1,
     "learning_rate": 0.0002,
-    "logging_steps": 1,
+    "logging_steps": 10,
     "lr_scheduler_type": "cosine",
     "bf16": True,
     "save_strategy": "epoch",
