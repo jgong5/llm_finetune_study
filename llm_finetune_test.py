@@ -10,6 +10,8 @@ from transformers import (
 )
 from peft import LoraConfig
 from trl import SFTTrainer
+from trl.trainer.utils import ConstantLengthDataset
+from source_code_dataset import SourceCodeDataset
 
 def llama_formatter(examples):
     return [example for example in examples['text']]
@@ -28,9 +30,13 @@ def gpt_formatter(examples):
         for instruction, input, output in zip(examples['instruction'], examples['input'], examples['output'])
     ]
 
+def source_code_formatter(examples):
+    return examples['code']
+
 # parse args
 import argparse
 parser = argparse.ArgumentParser(description='llm fine-tune test')
+parser.add_argument('--model', type=str, default='meta-llama/Llama-2-7b-hf', help='base model name')
 parser.add_argument('--dataset', type=str, default='mlabonne/guanaco-llama2-1k', help='dataset name')
 parser.add_argument('--output-dir', type=str, default='llama2-7b-chatbot', help='output directory')
 parser.add_argument('--train-num-samples', type=int, default=0, help='number of training samples')
@@ -40,7 +46,7 @@ parser.add_argument('--dataset-type', type=str, default='llama', help='dataset t
 args = parser.parse_args()
 
 # Load the pre-trained llama2-7b model and tokenizer
-model_name = "meta-llama/Llama-2-7b-hf"
+model_name = args.model
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 # NEVER DO THINGS BELOW!!! See https://www.georgesung.com/ai/qlora-ift/ and https://github.com/huggingface/transformers/issues/22794#issuecomment-1598977285
 # tokenizer.pad_token = tokenizer.eos_token
@@ -48,7 +54,13 @@ tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # New instruction dataset
-dataset = load_dataset(args.dataset, split=f"train[:{args.train_num_samples}]" if args.train_num_samples > 0 else "train")
+if args.dataset_type != "source_code":
+    dataset = load_dataset(args.dataset, split=f"train[:{args.train_num_samples}]" if args.train_num_samples > 0 else "train")
+else:
+    builder = SourceCodeDataset(args.dataset)
+    builder.download_and_prepare()
+    dataset = builder.as_dataset(split="train")
+    dataset = ConstantLengthDataset(tokenizer, dataset, formatting_func=source_code_formatter, seq_length=args.max_seq_length)
 
 peft_config = LoraConfig(
     r=64,
