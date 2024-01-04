@@ -2,7 +2,6 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
 from transformers import pipeline
 
-
 # parse args
 import argparse
 parser = argparse.ArgumentParser(description='llm inference test')
@@ -15,6 +14,8 @@ parser.add_argument('--device', type=str, default='cpu', help='device')
 args = parser.parse_args()
 
 device = args.device
+if device == "xpu":
+    import intel_extension_for_pytorch
 # Load the pre-trained llama2-7b model and tokenizer
 model_name = args.model
 tokenizer = AutoTokenizer.from_pretrained(model_name)
