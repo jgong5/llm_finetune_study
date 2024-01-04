@@ -1,9 +1,4 @@
 import torch
-try:
-    import intel_extension_for_pytorch as ipex
-except:
-    pass
-
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
 from transformers import pipeline
 
